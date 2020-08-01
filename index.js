@@ -1,12 +1,14 @@
 // Allows for user input and reading from external files
 const userInput = require("readline-sync");
-const readFile = require("fs");
-
-// Test array of words (TO BE CHANGED TO READ FROM TEXT FILE)
-const words = ["dog", "cat", "elephant", "zebra"];
+const fs = require("fs");
 
 // Starts new game
 function newGame() {
+    //lifelines
+    usedShowVowels = false;
+    usedShowDefinition = false;
+    usedSkipWord = false;
+
     //An array to store already guessed words
     completedWords = [];
 
@@ -19,6 +21,7 @@ function newGame() {
             "\n                             Welcome to Hangman!" +
             "\n============================================================================="
     );
+    //output for difficulty
     console.log(
         "Select Difficulty" +
             "\n(1)\tEasy (10 Lives)" +
@@ -47,14 +50,28 @@ function newGame() {
             break;
     }
 
-    //output promt for category
-    console.log(
-        "Select Difficulty" +
-            "\n(1)\tAnimals" +
-            "\n(2)\tSports" +
-            "\n(3)\tFruits" +
-            "\n(4)\tCCAs in SP"
-    );
+    //output for category
+    console.log("Select Category" + "\n(1)\tAnimals" + "\n(2)\tSports" + "\n(3)\tFruits");
+
+    //Prompts user for category and reads text files accordingly
+    //read readme.md for more information on how to set up text files
+    switch (userInput.questionInt("\n>> ")) {
+        case 1:
+            console.log("Selected: Animals");
+            words = fs.readFileSync("./Words/animals.txt").toString().replace(/\r\n/g, "\n").split("\n");
+            definitions = fs.readFileSync("./Words/animalsDefinition.txt").toString().replace(/\r\n/g, "\n").split("\n");
+            break;
+        case 2:
+            console.log("Selected: Sports");
+            words = fs.readFileSync("./Words/sports.txt").toString().replace(/\r\n/g, "\n").split("\n");
+            definitions = fs.readFileSync("./Words/sportsDefinition.txt").toString().replace(/\r\n/g, "\n").split("\n");
+            break;
+        case 3:
+            console.log("Selected: Fruits");
+            words = fs.readFileSync("./fruits.txt").toString().replace(/\r\n/g, "\n").split("\n");
+            definitions = fs.readFileSync("./Words/fruitsDefinition.txt").toString().replace(/\r\n/g, "\n").split("\n");
+            break;
+    }
 
     //Callback Function to initiate first round
     newRound();
@@ -63,21 +80,24 @@ function newGame() {
 //Starts a new round
 function newRound() {
     //Picks a random word from the array
-    var randomWord = Math.floor(Math.random() * words.length);
+    var randomInteger = Math.floor(Math.random() * words.length);
 
     //Checks if the current word has been chosen before and chooses a new word if it has
-    for (let i = 0; i < completedWords.length; i++) {
-        if (randomWord == completedWords[i]) {
-            randomWord = Math.floor(Math.random() * words.length);
-        } else completedWords.push(randomWord);
+    var completedWordsMinLength = completedWords.length++;
+    for (let i = 0; i < completedWordsMinLength; i++) {
+        if (randomInteger == completedWords[i]) {
+            randomInteger = Math.floor(Math.random() * words.length);
+        } else completedWords.push(randomInteger);
     }
 
-    var chosenWord = new Word(words[randomWord]);
+    var chosenWord = new Word(words[randomInteger], definitions[randomInteger]);
 
     //array to store letters already used by the user.
     usedLetterArr = [];
+
     //array used to store letters in the word for comparison to user's guess
     lettersWordArr = [];
+
     //pushes every letter of the word into lettersWordArr
     for (let i = 0; i < chosenWord.lettersArr.length; i++) {
         lettersWordArr.push(chosenWord.lettersArr[i].letter);
@@ -89,7 +109,7 @@ function newRound() {
     }
 
     //calls guessLetter function to let the user guess
-    guessLetter(chosenWord, randomWord);
+    guessLetter(chosenWord, randomInteger);
 }
 
 // Lets user guess word
@@ -99,33 +119,31 @@ function guessLetter(word, wordIndex) {
     //array used to store boolearn values whether each letter of the word is correctly guessed
     var guessesArr = [];
 
-    //Prompts user for a guess, converts it into lowecase for easy comparison
+    if (usedShowVowels == false || usedShowDefinition == false || usedSkipWord == false) {
+        console.log("Do you want to use a lifeline?\n(1)\tYes\n(2)\tNo\n");
+    }
+
+    //prompts user for a letter and converts it into lowercase for easy comparison
     var letterInput = userInput.question("\nEnter a letter \n> ").toLowerCase();
 
-    // <------------------------------------Error Handling for letterInput------------------------------------------->
+    // <------------------------------------Error Handling for letterInput Starts Here------------------------------------------->
     //Ensures that the letter input is one character
     while (letterInput.length < 1) {
-        letterInput = userInput
-            .question("\nError! Please enter a letter. \n> ")
-            .toLowerCase();
+        letterInput = userInput.question("\nError! Please enter a letter. \n> ").toLowerCase();
     }
 
     while (letterInput.length > 1) {
-        letterInput = userInput
-            .question("\nError! Please enter only one letter at a time. \n> ")
-            .toLowerCase();
+        letterInput = userInput.question("\nError! Please enter only one letter at a time. \n> ").toLowerCase();
     }
 
     //Ensures that the letter input has not been used
     for (let i = 0; i < usedLetterArr.length; i++) {
         while (letterInput === usedLetterArr[i].toLowerCase()) {
-            letterInput = userInput
-                .question("\nError! You have already used that letter! \n> ")
-                .toLowerCase();
+            letterInput = userInput.question("\nError! You have already used that letter! \n> ").toLowerCase();
         }
     }
 
-    //<------------------------------------Error Handling for letterInput------------------------------------------->
+    //<------------------------------------Error Handling for letterInput End Here------------------------------------------->
 
     //Pushes the letter input by the user into the used letter array
     usedLetterArr.push(letterInput);
@@ -144,6 +162,7 @@ function guessLetter(word, wordIndex) {
         console.log("\nIncorrect\nLives Remaining: " + lives);
     }
 
+    //<------------------------------------Possible Outcomes Based on User's Guess Starts Here------------------------------------------->
     //Checks that the word has not been fully guessed
     if (guessesArr.indexOf(false) >= 0 && lives > 0) {
         //calls guessLetter again, allowing the user to input another guess
@@ -155,28 +174,23 @@ function guessLetter(word, wordIndex) {
         for (let i = 0; i < word.lettersArr.length; i++) {
             word.lettersArr[i].checkScore();
             score += word.lettersArr[i].score;
+
+            //if completed words are less than 10, starts the next round
         }
         if (completedWords.length !== 10) {
             console.log(
-                "\nWord guessed! The word was " +
-                    words[wordIndex] +
-                    "\nMoving on to next round..." +
-                    "\nScore: " +
-                    score
+                "\nWord guessed! The word was " + words[wordIndex] + "\nMoving on to next round..." + "\nScore: " + score
             );
-
-            //adds the word to completedWords array if correctly guessed
-            completedWords.push(words[wordIndex]);
 
             //starts another round
             newRound();
+
+            //output if the user won the game
         } else {
             console.log("\nWord guessed! The word was " + words[wordIndex]);
-            console.log("Congratulations, you win the game!");
+            console.log("Congratulations, you solved " + completedWords.length + " out of 10 words!");
             console.log("Score: " + score);
-            console.log(
-                "\nDo you wish to play again?" + "\n(1)\tYes" + "\n(2)\tNo"
-            );
+            console.log("Do you wish to play again?" + "\n(1)\tYes" + "\n(2)\tNo");
 
             //Prompts the user if they want to play agian
             switch (userInput.questionInt("\n>> ")) {
@@ -192,10 +206,9 @@ function guessLetter(word, wordIndex) {
             score += word.lettersArr[i].score;
         }
         console.log("\nYou lost :-/ The word was " + words[wordIndex]);
+        console.log("You solved: " + --completedWords.length + " out of 10 words!");
         console.log("Score: " + score);
-        console.log(
-            "\nDo you wish to play again?" + "\n(1)\tYes" + "\n(2)\tNo"
-        );
+        console.log("Do you wish to play again?" + "\n(1)\tYes" + "\n(2)\tNo");
 
         //Prompts the user if they want to play agian
         switch (userInput.questionInt("\n>> ")) {
@@ -205,6 +218,45 @@ function guessLetter(word, wordIndex) {
         }
     }
 }
+
+//<------------------------------------Possible Outcomes Based on User's Guess Ends Heree------------------------------------------->
+
+//<------------------------------------Lifeline Functions Starts Here------------------------------------------->
+//parameter wordIndex is used so that the value can be parsed into guessLetter() function
+
+//lifeline to show all vowels
+function showVowels(word, wordIndex) {
+    for (let i = 0; i < word.lettersArr.length; i++) {
+        if (word.lettersArr[i].vowel === true) {
+            word.lettersArr[i].guessed = true;
+        }
+    }
+    usedShowVowels = true;
+    guessLetter(word, wordIndex);
+}
+
+//lifeline to show definition
+function usedShowDefinition(word, wordIndex) {
+    console.log("\nDefinition: " + definitions[wordIndex]);
+    usedShowDefinition = true;
+    guessletter(word, wordIndex);
+}
+
+//lifeline to skip word
+function skipWord(word, wordIndex) {
+    for (let i = 0; i < word.lettersArr.length; i++) {
+        word.lettersArr[i].guessed = true;
+    }
+    for (let i = 0; i < word.lettersArr.length; i++) {
+        word.lettersArr[i].checkScore();
+        score += word.lettersArr[i].score;
+    }
+    console.log("\nLifeline used! The word was " + words[wordIndex] + "\nMoving on to next round..." + "\nScore: " + score);
+    usedSkipWord = true;
+    newRound();
+}
+
+//<------------------------------------Lifeline Functions End Here------------------------------------------->
 
 //Class constructors for each word and letter
 function Letters(letter) {
@@ -222,13 +274,7 @@ function Letters(letter) {
 
     //determines if the letter is a vowel
     this.checkVowel = function () {
-        if (
-            this.letter == "a" ||
-            this.letter == "e" ||
-            this.letter == "i" ||
-            this.letter == "o" ||
-            this.letter == "u"
-        ) {
+        if (this.letter == "a" || this.letter == "e" || this.letter == "i" || this.letter == "o" || this.letter == "u") {
             this.vowel = true;
             return;
         }
@@ -256,8 +302,11 @@ function Letters(letter) {
     };
 }
 
-function Word(chosenWord) {
+function Word(chosenWord, chosenDefinition) {
     this.lettersArr = [];
+
+    //stores the definition of the word
+    this.definition = chosenDefinition;
 
     //Gives each letter properties and pushes them into an array
     for (let i = 0; i < chosenWord.length; i++) {
